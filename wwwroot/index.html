@@ -1,0 +1,93 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>İzmit Ulaşım Yolculuk Planlayıcı</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header>
+    <h1>İzmit Ulaşım Yolculuk Planlayıcı</h1>
+  </header>
+  <div class="container">
+    <form id="journeyForm">
+      <!-- Form alanları buraya gelecek -->
+      <label for="startLat">Başlangıç - Enlem</label>
+      <input type="number" id="startLat" step="any" placeholder="Örnek: 40.780" required>
+      <label for="startLon">Başlangıç - Boylam</label>
+      <input type="number" id="startLon" step="any" placeholder="Örnek: 29.945" required>
+      <label for="destLat">Hedef - Enlem</label>
+      <input type="number" id="destLat" step="any" placeholder="Örnek: 40.765" required>
+      <label for="destLon">Hedef - Boylam</label>
+      <input type="number" id="destLon" step="any" placeholder="Örnek: 29.960" required>
+      <label for="passengerType">Yolcu Tipi</label>
+      <select id="passengerType">
+        <option value="General">Genel</option>
+        <option value="Student">Öğrenci</option>
+        <option value="Elderly">Yaşlı</option>
+      </select>
+      <label for="cashAmount">Nakit Miktarı</label>
+      <input type="number" id="cashAmount" step="any" placeholder="Örnek: 50" required>
+      <label for="creditCardLimit">Kredi Kartı Limiti</label>
+      <input type="number" id="creditCardLimit" step="any" placeholder="Örnek: 100" required>
+      <label for="kentKartBalance">KentKart Bakiyesi</label>
+      <input type="number" id="kentKartBalance" step="any" placeholder="Örnek: 30" required>
+      <button type="submit">Yolculuğu Planla</button>
+    </form>
+  </div>
+  <div id="result"></div>
+  <script>
+    // JavaScript ile form verilerini toplayıp API'ye istek gönderme
+    document.getElementById("journeyForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      var requestData = {
+        StartLatitude: parseFloat(document.getElementById("startLat").value),
+        StartLongitude: parseFloat(document.getElementById("startLon").value),
+        DestinationLatitude: parseFloat(document.getElementById("destLat").value),
+        DestinationLongitude: parseFloat(document.getElementById("destLon").value),
+        PassengerType: document.getElementById("passengerType").value,
+        Payment: {
+          CashAmount: parseFloat(document.getElementById("cashAmount").value),
+          CreditCardLimit: parseFloat(document.getElementById("creditCardLimit").value),
+          KentKartBalance: parseFloat(document.getElementById("kentKartBalance").value)
+        }
+      };
+
+      fetch("/api/transportation/planjourney", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(requestData)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("API isteği başarısız oldu: " + response.statusText);
+        }
+        return response.json();
+      })
+      .then(data => {
+        var resultDiv = document.getElementById("result");
+        var html = "<h3>Rota Planlama Sonucu</h3>";
+        html += "<p><strong>Başlangıç Durağı:</strong> " + data.NearestStartStop + " (" + data.DistanceToStartStop + " km)</p>";
+        html += "<p><strong>Varış Durağı:</strong> " + data.NearestEndStop + " (" + data.DistanceFromEndStop + " km)</p>";
+        html += "<p><strong>Optimal Rota:</strong> " + data.OptimalRoute.RouteType + "</p>";
+        html += "<p><strong>Toplam Süre:</strong> " + data.OptimalRoute.TotalDuration + " dk</p>";
+        html += "<p><strong>Toplam Ücret:</strong> " + data.OptimalRoute.TotalFare + " TL</p>";
+        if (data.AlternativeRoutes && data.AlternativeRoutes.length > 0) {
+          html += "<h4>Alternatif Rotalar:</h4><ul>";
+          data.AlternativeRoutes.forEach(function(route) {
+            html += "<li><strong>" + route.RouteType + "</strong> - Süre: " + route.TotalDuration + " dk, Ücret: " + route.TotalFare + " TL</li>";
+          });
+          html += "</ul>";
+        }
+        resultDiv.innerHTML = html;
+      })
+      .catch(error => {
+        document.getElementById("result").innerHTML = "<p style='color: red;'>Hata: " + error + "</p>";
+      });
+    });
+  </script>
+</body>
+</html>
