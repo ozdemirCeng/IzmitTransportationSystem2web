@@ -1,31 +1,25 @@
 ﻿using IzmitTransportationSystem.Models;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.Xml;
 
 namespace IzmitTransportationSystem.Services
 {
     public class TransportationDataService
     {
-        private static TransportationDataService _instance;
-        private CityData _cityData;
+        private CityData _cityData = null!;
+        private readonly IWebHostEnvironment _env;
+        private readonly ILogger<TransportationDataService> _logger;
 
-        public static TransportationDataService Instance
+        public TransportationDataService(IWebHostEnvironment env, ILogger<TransportationDataService> logger)
         {
-            get
-            {
-                if (_instance == null)
-                    _instance = new TransportationDataService();
-                return _instance;
-            }
-        }
-
-        private TransportationDataService()
-        {
+            _env = env;
+            _logger = logger;
             LoadData();
         }
 
@@ -33,7 +27,18 @@ namespace IzmitTransportationSystem.Services
         {
             try
             {
-                string jsonData = File.ReadAllText("veri.json");
+                string jsonPath = Path.Combine(_env.ContentRootPath, "veri.json");
+                _logger.LogInformation("Loading data from: {Path}", jsonPath);
+                
+                if (!File.Exists(jsonPath))
+                {
+                    _logger.LogError("veri.json file not found at: {Path}", jsonPath);
+                    throw new FileNotFoundException($"veri.json file not found at: {jsonPath}");
+                }
+                
+                string jsonData = File.ReadAllText(jsonPath);
+                _logger.LogInformation("JSON file loaded successfully, size: {Size} bytes", jsonData.Length);
+                
                 JObject jObject = JObject.Parse(jsonData);
 
                 _cityData = new CityData
@@ -85,10 +90,12 @@ namespace IzmitTransportationSystem.Services
 
                     _cityData.Stops.Add(stop);
                 }
+                
+                _logger.LogInformation("Data loaded successfully: {City}, {StopCount} stops", _cityData.City, _cityData.Stops.Count);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading data: {ex.Message}");
+                _logger.LogError(ex, "Error loading data: {Message}", ex.Message);
                 throw;
             }
         }

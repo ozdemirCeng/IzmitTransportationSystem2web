@@ -2,92 +2,800 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>İzmit Ulaşım Yolculuk Planlayıcı</title>
+  <title>İzmit Ulaşım Planlayıcı</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css">
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=geometry"></script>
 </head>
 <body>
-  <header>
-    <h1>İzmit Ulaşım Yolculuk Planlayıcı</h1>
-  </header>
-  <div class="container">
-    <form id="journeyForm">
-      <!-- Form alanları buraya gelecek -->
-      <label for="startLat">Başlangıç - Enlem</label>
-      <input type="number" id="startLat" step="any" placeholder="Örnek: 40.780" required>
-      <label for="startLon">Başlangıç - Boylam</label>
-      <input type="number" id="startLon" step="any" placeholder="Örnek: 29.945" required>
-      <label for="destLat">Hedef - Enlem</label>
-      <input type="number" id="destLat" step="any" placeholder="Örnek: 40.765" required>
-      <label for="destLon">Hedef - Boylam</label>
-      <input type="number" id="destLon" step="any" placeholder="Örnek: 29.960" required>
-      <label for="passengerType">Yolcu Tipi</label>
-      <select id="passengerType">
-        <option value="General">Genel</option>
-        <option value="Student">Öğrenci</option>
-        <option value="Elderly">Yaşlı</option>
-      </select>
-      <label for="cashAmount">Nakit Miktarı</label>
-      <input type="number" id="cashAmount" step="any" placeholder="Örnek: 50" required>
-      <label for="creditCardLimit">Kredi Kartı Limiti</label>
-      <input type="number" id="creditCardLimit" step="any" placeholder="Örnek: 100" required>
-      <label for="kentKartBalance">KentKart Bakiyesi</label>
-      <input type="number" id="kentKartBalance" step="any" placeholder="Örnek: 30" required>
-      <button type="submit">Yolculuğu Planla</button>
-    </form>
+
+  <!-- Full-screen Map Background -->
+  <div id="map"></div>
+
+  <!-- Floating Sidebar Panel -->
+  <div class="sidebar" id="sidebar">
+
+    <!-- Header -->
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        </div>
+        <span class="brand-name">İzmit Transit</span>
+      </div>
+      <button class="icon-btn" id="toggleSidebar" title="Paneli daralt">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tabs">
+      <button class="tab active" data-tab="plan">Rota Planla</button>
+      <button class="tab" data-tab="stops">Duraklar</button>
+      <button class="tab" data-tab="favs">Favoriler</button>
+    </div>
+
+    <!-- Tab: Route Planning -->
+    <div class="tab-content active" id="tab-plan">
+      <form id="journeyForm" class="route-form">
+
+        <!-- Location Inputs -->
+        <div class="location-box">
+          <div class="location-dots">
+            <span class="dot dot-start"></span>
+            <span class="dot-line"></span>
+            <span class="dot dot-end"></span>
+          </div>
+          <div class="location-fields">
+            <div class="loc-input-group">
+              <input type="number" id="startLat" step="any" placeholder="Başlangıç enlemi" required>
+              <input type="number" id="startLon" step="any" placeholder="Başlangıç boylamı" required>
+            </div>
+            <div class="loc-input-group">
+              <input type="number" id="destLat" step="any" placeholder="Hedef enlemi" required>
+              <input type="number" id="destLon" step="any" placeholder="Hedef boylamı" required>
+            </div>
+          </div>
+          <div class="location-actions">
+            <button type="button" class="icon-btn-sm" id="swapPoints" title="Noktaları değiştir">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+            </button>
+            <button type="button" class="icon-btn-sm" id="clearPoints" title="Temizle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Map Click Status -->
+        <div class="map-hint" id="mapHint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+          <span id="mapStatus">Haritaya tıklayarak nokta seçebilirsiniz</span>
+        </div>
+
+        <!-- Collapsible Options -->
+        <details class="options-group" open>
+          <summary>Yolcu ve Ödeme</summary>
+          <div class="options-body">
+            <div class="field">
+              <label for="passengerType">Yolcu Tipi</label>
+              <select id="passengerType">
+                <option value="General">Genel Yolcu</option>
+                <option value="Student">Öğrenci</option>
+                <option value="Elderly">Yaşlı</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="cashAmount">Nakit (₺)</label>
+                <input type="number" id="cashAmount" step="any" value="100" required>
+              </div>
+              <div class="field">
+                <label for="creditCardLimit">Kart (₺)</label>
+                <input type="number" id="creditCardLimit" step="any" value="200" required>
+              </div>
+              <div class="field">
+                <label for="kentKartBalance">KentKart (₺)</label>
+                <input type="number" id="kentKartBalance" step="any" value="50" required>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="options-group">
+          <summary>Tercihler</summary>
+          <div class="options-body">
+            <div class="field">
+              <label for="sortBy">Sıralama</label>
+              <select id="sortBy">
+                <option value="fastest">En hızlı</option>
+                <option value="cheapest">En ucuz</option>
+                <option value="balanced">Dengeli</option>
+              </select>
+            </div>
+            <label class="check-item">
+              <input type="checkbox" id="allowTaxi" checked>
+              <span>Taksi rotalarını dahil et</span>
+            </label>
+            <label class="check-item">
+              <input type="checkbox" id="allowWalkOnly" checked>
+              <span>Yalnız yürüme rotalarını göster</span>
+            </label>
+          </div>
+        </details>
+
+        <button type="submit" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Rota Bul
+        </button>
+      </form>
+
+      <!-- Loading -->
+      <div class="loading" id="loading">
+        <div class="loader"></div>
+        <span>Rotalar hesaplanıyor...</span>
+      </div>
+
+      <!-- Results -->
+      <div id="result" class="results">
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <p>Başlangıç ve hedef noktası seçin, ardından "Rota Bul"a tıklayın</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Stops -->
+    <div class="tab-content" id="tab-stops">
+      <div class="stops-panel">
+        <input type="text" id="stopSearch" class="search-input" placeholder="Durak adı ara...">
+        <div id="activeStopCard" class="active-stop-card"></div>
+        <div class="stops-section">
+          <h4>Rota Durakları</h4>
+          <div id="stopsPanel" class="stop-list"></div>
+        </div>
+        <div class="stops-section">
+          <h4>Yakındaki Duraklar</h4>
+          <div id="nearbyStopsPanel" class="stop-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Favorites -->
+    <div class="tab-content" id="tab-favs">
+      <div class="fav-panel">
+        <div class="fav-add">
+          <input type="text" id="favoriteName" placeholder="Favori adı (ör. Ev → Okul)">
+          <button type="button" id="saveFavorite" class="btn-secondary">Kaydet</button>
+        </div>
+        <div id="favoritesList" class="fav-list"></div>
+      </div>
+    </div>
   </div>
-  <div id="result"></div>
+
+  <!-- Map Legend (floating) -->
+  <div class="map-legend">
+    <span class="legend-chip"><span class="ldot walk"></span>Yürüyüş</span>
+    <span class="legend-chip"><span class="ldot bus"></span>Otobüs</span>
+    <span class="legend-chip"><span class="ldot tram"></span>Tramvay</span>
+    <span class="legend-chip"><span class="ldot taxi"></span>Taksi</span>
+  </div>
+
+  <!-- Lines Panel (floating, bottom-right) -->
+  <div class="lines-float" id="linesFloat">
+    <h4>Aktif Hatlar</h4>
+    <div id="linesPanel" class="lines-list"></div>
+  </div>
+
   <script>
-    // JavaScript ile form verilerini toplayıp API'ye istek gönderme
-    document.getElementById("journeyForm").addEventListener("submit", function(e) {
+    let map = null;
+    let markers = [];
+    let polylines = [];
+    let directionsRenderer = null;
+    let clickMode = 'start';
+    let startMarker = null;
+    let endMarker = null;
+    let favorites = [];
+    let stopMarkersById = {};
+    let activeStopId = null;
+    let alternativesVisible = true;
+
+    // ─── Init ───
+    window.onload = function() {
+      initMap(40.7654, 29.9403);
+      loadFavorites();
+      wireTopActions();
+      wireFavoriteActions();
+      wireStopSearch();
+      wireTabs();
+      wireSidebarToggle();
+      applyQueryParams();
+    };
+
+    // ─── Tabs ───
+    function wireTabs() {
+      document.querySelectorAll('.tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        });
+      });
+    }
+
+    function wireSidebarToggle() {
+      document.getElementById('toggleSidebar').addEventListener('click', function() {
+        document.getElementById('sidebar').classList.toggle('collapsed');
+      });
+    }
+
+    // ─── Map ───
+    function initMap(lat, lng) {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: lat, lng: lng },
+        zoom: 13,
+        disableDefaultUI: true,
+        zoomControl: true,
+        zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        fullscreenControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
+        styles: [
+          { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'on' }] },
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+        ]
+      });
+      map.addListener('click', function(event) { handleMapClick(event.latLng); });
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: { strokeColor: '#4285F4', strokeWeight: 5, strokeOpacity: 0.8 }
+      });
+    }
+
+    function handleMapClick(latLng) {
+      const lat = latLng.lat(), lng = latLng.lng();
+      if (clickMode === 'start') {
+        updateStartMarker(lat, lng);
+        clickMode = 'end';
+        document.getElementById('mapStatus').textContent = 'Şimdi hedef noktasını seçin';
+        document.getElementById('mapHint').className = 'map-hint info';
+      } else {
+        updateEndMarker(lat, lng);
+        clickMode = 'start';
+        document.getElementById('mapStatus').textContent = 'Hazır — "Rota Bul"a tıklayın';
+        document.getElementById('mapHint').className = 'map-hint success';
+      }
+    }
+
+    function createCircleIcon(color) {
+      return {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 12,
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 3
+      };
+    }
+
+    function updateStartMarker(lat, lng) {
+      document.getElementById('startLat').value = lat.toFixed(6);
+      document.getElementById('startLon').value = lng.toFixed(6);
+      if (startMarker) startMarker.setMap(null);
+      startMarker = new google.maps.Marker({
+        position: { lat, lng }, map,
+        title: 'Başlangıç',
+        label: { text: 'B', color: '#fff', fontWeight: 'bold', fontSize: '11px' },
+        icon: createCircleIcon('#34A853'),
+        draggable: true
+      });
+      startMarker.addListener('dragend', function(e) {
+        document.getElementById('startLat').value = e.latLng.lat().toFixed(6);
+        document.getElementById('startLon').value = e.latLng.lng().toFixed(6);
+      });
+    }
+
+    function updateEndMarker(lat, lng) {
+      document.getElementById('destLat').value = lat.toFixed(6);
+      document.getElementById('destLon').value = lng.toFixed(6);
+      if (endMarker) endMarker.setMap(null);
+      endMarker = new google.maps.Marker({
+        position: { lat, lng }, map,
+        title: 'Hedef',
+        label: { text: 'H', color: '#fff', fontWeight: 'bold', fontSize: '11px' },
+        icon: createCircleIcon('#EA4335'),
+        draggable: true
+      });
+      endMarker.addListener('dragend', function(e) {
+        document.getElementById('destLat').value = e.latLng.lat().toFixed(6);
+        document.getElementById('destLon').value = e.latLng.lng().toFixed(6);
+      });
+    }
+
+    // ─── Top Actions ───
+    function wireTopActions() {
+      document.getElementById('swapPoints').addEventListener('click', function() {
+        const sLat = document.getElementById('startLat').value, sLon = document.getElementById('startLon').value;
+        const dLat = document.getElementById('destLat').value, dLon = document.getElementById('destLon').value;
+        if (!sLat || !sLon || !dLat || !dLon) return;
+        document.getElementById('startLat').value = dLat; document.getElementById('startLon').value = dLon;
+        document.getElementById('destLat').value = sLat; document.getElementById('destLon').value = sLon;
+        updateStartMarker(parseFloat(dLat), parseFloat(dLon));
+        updateEndMarker(parseFloat(sLat), parseFloat(sLon));
+      });
+      document.getElementById('clearPoints').addEventListener('click', function() {
+        ['startLat','startLon','destLat','destLon'].forEach(id => document.getElementById(id).value = '');
+        if (startMarker) startMarker.setMap(null); if (endMarker) endMarker.setMap(null);
+        startMarker = null; endMarker = null; clickMode = 'start';
+        document.getElementById('mapStatus').textContent = 'Haritaya tıklayarak nokta seçebilirsiniz';
+        document.getElementById('mapHint').className = 'map-hint';
+      });
+    }
+
+    // ─── Favorites ───
+    function wireFavoriteActions() {
+      document.getElementById('saveFavorite').addEventListener('click', function() {
+        const name = document.getElementById('favoriteName').value.trim();
+        const sLat = document.getElementById('startLat').value, sLon = document.getElementById('startLon').value;
+        const dLat = document.getElementById('destLat').value, dLon = document.getElementById('destLon').value;
+        if (!name || !sLat || !sLon || !dLat || !dLon) return;
+        favorites.push({ name, startLat: +sLat, startLon: +sLon, destLat: +dLat, destLon: +dLon });
+        saveFavorites(); renderFavorites();
+        document.getElementById('favoriteName').value = '';
+      });
+    }
+
+    function loadFavorites() { favorites = JSON.parse(localStorage.getItem('izmit_favorites') || '[]'); renderFavorites(); }
+    function saveFavorites() { localStorage.setItem('izmit_favorites', JSON.stringify(favorites)); }
+
+    function renderFavorites() {
+      const c = document.getElementById('favoritesList');
+      if (!favorites.length) { c.innerHTML = '<p class="muted">Henüz favori eklenmedi</p>'; return; }
+      c.innerHTML = favorites.map((f, i) =>
+        '<div class="fav-item"><button type="button" class="fav-btn" onclick="applyFavorite(' + i + ')">' + f.name +
+        '</button><button type="button" class="fav-del" onclick="removeFavorite(' + i + ')">×</button></div>'
+      ).join('');
+    }
+
+    function applyFavorite(i) {
+      const f = favorites[i]; if (!f) return;
+      updateStartMarker(f.startLat, f.startLon); updateEndMarker(f.destLat, f.destLon);
+      // Switch to plan tab
+      document.querySelectorAll('.tab')[0].click();
+    }
+    function removeFavorite(i) { favorites.splice(i, 1); saveFavorites(); renderFavorites(); }
+
+    function applyQueryParams() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('passengerType')) document.getElementById('passengerType').value = p.get('passengerType');
+      if (p.get('sortBy')) document.getElementById('sortBy').value = p.get('sortBy');
+      if (p.get('allowTaxi') !== null) document.getElementById('allowTaxi').checked = p.get('allowTaxi') === 'true';
+      if (p.get('allowWalkOnly') !== null) document.getElementById('allowWalkOnly').checked = p.get('allowWalkOnly') === 'true';
+      if (p.get('startLat') && p.get('startLon')) updateStartMarker(+p.get('startLat'), +p.get('startLon'));
+      if (p.get('destLat') && p.get('destLon')) updateEndMarker(+p.get('destLat'), +p.get('destLon'));
+    }
+
+    // ─── Map Drawing ───
+    function clearMapElements() {
+      markers.forEach(m => m.setMap(null)); polylines.forEach(p => p.setMap(null));
+      markers = []; polylines = []; stopMarkersById = {};
+      if (directionsRenderer) { directionsRenderer.setMap(null); directionsRenderer.setMap(map); }
+    }
+
+    function drawWalkingLeg(from, to, color, weight, opacity) {
+      new google.maps.DirectionsService().route({
+        origin: from, destination: to, travelMode: google.maps.TravelMode.WALKING
+      }, function(result, status) {
+        if (status === 'OK') {
+          const pl = new google.maps.Polyline({
+            path: result.routes[0].overview_path, geodesic: true,
+            strokeColor: color, strokeOpacity: opacity, strokeWeight: weight,
+            icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '14px' }]
+          });
+          pl.setMap(map); polylines.push(pl);
+        }
+      });
+    }
+
+    function drawTransitLeg(from, to, color, weight, opacity, dashed) {
+      const outline = new google.maps.Polyline({ path: [from, to], geodesic: true, strokeColor: '#000', strokeOpacity: opacity * 0.15, strokeWeight: weight + 2 });
+      outline.setMap(map); polylines.push(outline);
+      const pl = new google.maps.Polyline({
+        path: [from, to], geodesic: true, strokeColor: color,
+        strokeOpacity: dashed ? 0 : opacity, strokeWeight: weight,
+        icons: dashed ? [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 }, offset: '0', repeat: '12px' }] : undefined
+      });
+      pl.setMap(map); polylines.push(pl);
+    }
+
+    function resolveCoord(stopId, data, startCoord, endCoord) {
+      if (!stopId) return null;
+      if (stopId === 'custom_start') return startCoord;
+      if (stopId === 'custom_end') return endCoord;
+      if (data.stopLocations && data.stopLocations[stopId])
+        return { lat: data.stopLocations[stopId].latitude, lng: data.stopLocations[stopId].longitude };
+      return null;
+    }
+
+    function drawRouteSegments(route, data, startCoord, endCoord, opts) {
+      if (!route || !route.segments) return;
+      route.segments.forEach(function(seg) {
+        const from = resolveCoord(seg.fromStopId, data, startCoord, endCoord);
+        const to = resolveCoord(seg.toStopId, data, startCoord, endCoord);
+        if (!from || !to) return;
+        if (seg.vehicleType === 'Walk') drawWalkingLeg(from, to, '#34A853', opts.walkWeight, opts.opacity);
+        else if (seg.vehicleType === 'Bus') drawTransitLeg(from, to, '#4285F4', opts.transitWeight, opts.opacity, true);
+        else if (seg.vehicleType === 'Tram') drawTransitLeg(from, to, '#9334E6', opts.transitWeight + 1, opts.opacity, false);
+        else if (seg.vehicleType === 'Taxi') drawTransitLeg(from, to, '#F9AB00', opts.transitWeight, opts.opacity, false);
+        else drawTransitLeg(from, to, '#5F6368', opts.transitWeight, opts.opacity, false);
+        if (opts.addStops) {
+          if (seg.fromStopId && !seg.fromStopId.startsWith('custom_')) addStopMarker(from.lat, from.lng, formatStopId(seg.fromStopId), seg.fromStopId);
+          if (seg.toStopId && !seg.toStopId.startsWith('custom_')) addStopMarker(to.lat, to.lng, formatStopId(seg.toStopId), seg.toStopId);
+        }
+      });
+    }
+
+    function drawRoutesWithHighlight(routes, selectedIdx, data, startCoord, endCoord) {
+      clearMapElements();
+      addMarker(startCoord.lat, startCoord.lng, 'Başlangıç', '#34A853', 'B');
+      addMarker(endCoord.lat, endCoord.lng, 'Hedef', '#EA4335', 'H');
+      routes.forEach(function(route, i) {
+        const sel = i === selectedIdx;
+        drawRouteSegments(route, data, startCoord, endCoord, {
+          opacity: sel ? 0.95 : 0.2, walkWeight: sel ? 4 : 2, transitWeight: sel ? 5 : 2, addStops: sel
+        });
+      });
+    }
+
+    function addMarker(lat, lng, title, color, label) {
+      const m = new google.maps.Marker({
+        position: { lat, lng }, map, title,
+        label: { text: label, color: '#fff', fontWeight: 'bold', fontSize: '11px' },
+        icon: createCircleIcon(color)
+      });
+      markers.push(m); return m;
+    }
+
+    function addStopMarker(lat, lng, title, stopId) {
+      const m = new google.maps.Marker({
+        position: { lat, lng }, map, title,
+        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#fff" stroke="#5F6368" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="#5F6368"/></svg>'), scaledSize: new google.maps.Size(24, 24) }
+      });
+      const info = new google.maps.InfoWindow({ content: '<div style="padding:4px;font-weight:600;font-family:Inter,sans-serif">' + title + '</div>' });
+      m.addListener('click', () => info.open(map, m));
+      m.addListener('mouseover', () => info.open(map, m));
+      m.addListener('mouseout', () => info.close());
+      markers.push(m);
+      if (stopId) stopMarkersById[stopId] = m;
+    }
+
+    // ─── Form Submit ───
+    document.getElementById('journeyForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      var requestData = {
-        StartLatitude: parseFloat(document.getElementById("startLat").value),
-        StartLongitude: parseFloat(document.getElementById("startLon").value),
-        DestinationLatitude: parseFloat(document.getElementById("destLat").value),
-        DestinationLongitude: parseFloat(document.getElementById("destLon").value),
-        PassengerType: document.getElementById("passengerType").value,
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('result').innerHTML = '';
+
+      const reqData = {
+        StartLatitude: +document.getElementById('startLat').value,
+        StartLongitude: +document.getElementById('startLon').value,
+        DestinationLatitude: +document.getElementById('destLat').value,
+        DestinationLongitude: +document.getElementById('destLon').value,
+        PassengerType: document.getElementById('passengerType').value,
         Payment: {
-          CashAmount: parseFloat(document.getElementById("cashAmount").value),
-          CreditCardLimit: parseFloat(document.getElementById("creditCardLimit").value),
-          KentKartBalance: parseFloat(document.getElementById("kentKartBalance").value)
+          CashAmount: +document.getElementById('cashAmount').value,
+          CreditCardLimit: +document.getElementById('creditCardLimit').value,
+          KentKartBalance: +document.getElementById('kentKartBalance').value
         }
       };
 
-      fetch("/api/transportation/planjourney", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(requestData)
+      fetch('/api/transportation/planjourney', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqData)
       })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("API isteği başarısız oldu: " + response.statusText);
-        }
-        return response.json();
-      })
+      .then(r => { if (!r.ok) throw new Error('API hatası: ' + r.statusText); return r.json(); })
       .then(data => {
-        var resultDiv = document.getElementById("result");
-        var html = "<h3>Rota Planlama Sonucu</h3>";
-        html += "<p><strong>Başlangıç Durağı:</strong> " + data.NearestStartStop + " (" + data.DistanceToStartStop + " km)</p>";
-        html += "<p><strong>Varış Durağı:</strong> " + data.NearestEndStop + " (" + data.DistanceFromEndStop + " km)</p>";
-        html += "<p><strong>Optimal Rota:</strong> " + data.OptimalRoute.RouteType + "</p>";
-        html += "<p><strong>Toplam Süre:</strong> " + data.OptimalRoute.TotalDuration + " dk</p>";
-        html += "<p><strong>Toplam Ücret:</strong> " + data.OptimalRoute.TotalFare + " TL</p>";
-        if (data.AlternativeRoutes && data.AlternativeRoutes.length > 0) {
-          html += "<h4>Alternatif Rotalar:</h4><ul>";
-          data.AlternativeRoutes.forEach(function(route) {
-            html += "<li><strong>" + route.RouteType + "</strong> - Süre: " + route.TotalDuration + " dk, Ücret: " + route.TotalFare + " TL</li>";
-          });
-          html += "</ul>";
+        document.getElementById('loading').style.display = 'none';
+        if (!data || !data.optimalRoute) {
+          document.getElementById('result').innerHTML = '<div class="alert error">Rota bulunamadı. Farklı koordinatlar deneyin.</div>';
+          return;
         }
-        resultDiv.innerHTML = html;
+
+        const startCoord = { lat: +document.getElementById('startLat').value, lng: +document.getElementById('startLon').value };
+        const endCoord = { lat: +document.getElementById('destLat').value, lng: +document.getElementById('destLon').value };
+        const filtered = filterRoutes(data);
+        const sorted = sortRoutes(filtered);
+
+        if (!sorted.length) {
+          document.getElementById('result').innerHTML = '<div class="alert warn">Filtrelerle eşleşen rota yok.</div>';
+          return;
+        }
+
+        window.lastRouteData = data; window.lastStartCoord = startCoord;
+        window.lastEndCoord = endCoord; window.lastRoutes = sorted;
+
+        drawRoutesWithHighlight(sorted, 0, data, startCoord, endCoord);
+        renderRoutePanels(sorted[0]);
+
+        // Fit bounds
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(startCoord); bounds.extend(endCoord);
+        if (data.startStopLocation) bounds.extend({ lat: data.startStopLocation.latitude, lng: data.startStopLocation.longitude });
+        if (data.endStopLocation) bounds.extend({ lat: data.endStopLocation.latitude, lng: data.endStopLocation.longitude });
+        map.fitBounds(bounds);
+
+        document.getElementById('mapStatus').textContent = 'Rota haritada gösteriliyor';
+        document.getElementById('mapHint').className = 'map-hint success';
+
+        // Build results HTML
+        let html = '';
+
+        // Stop info summary
+        html += '<div class="stop-summary">' +
+          '<div class="stop-info-item"><span class="si-label">Başlangıç durağı</span><span class="si-value">' + (data.nearestStartStop || '—') + '</span><span class="si-dist">' + (data.distanceToStartStop || 0).toFixed(2) + ' km</span></div>' +
+          '<div class="stop-info-item"><span class="si-label">Varış durağı</span><span class="si-value">' + (data.nearestEndStop || '—') + '</span><span class="si-dist">' + (data.distanceFromEndStop || 0).toFixed(2) + ' km</span></div>' +
+          '</div>';
+
+        // Optimal route
+        const opt = sorted[0];
+        html += '<div class="route-card best">' +
+          '<div class="rc-head"><span class="rc-badge best-badge">En İyi Rota</span>' +
+          '<span class="rc-type">' + getRouteIcon(opt.routeType) + ' ' + opt.routeType + '</span></div>' +
+          '<div class="rc-stats">' +
+            '<div class="rc-stat"><span class="rc-stat-val">' + opt.totalDuration + '</span><span class="rc-stat-lbl">dakika</span></div>' +
+            '<div class="rc-stat"><span class="rc-stat-val">' + opt.totalFare.toFixed(2) + '</span><span class="rc-stat-lbl">₺</span></div>' +
+            '<div class="rc-stat"><span class="rc-stat-val">' + opt.totalDistance.toFixed(1) + '</span><span class="rc-stat-lbl">km</span></div>' +
+            '<div class="rc-stat"><span class="rc-stat-val">' + formatArrivalTime(opt.totalDuration) + '</span><span class="rc-stat-lbl">varış</span></div>' +
+          '</div>' +
+          '<div class="rc-chips">' + buildChips(opt) + '</div>' +
+          buildTimeline(opt) +
+          '<div class="rc-actions">' +
+            '<button class="btn-sm" onclick="focusRouteOnMap(0)">Haritada göster</button>' +
+            '<button class="btn-sm" onclick="copyRouteLink()">Link kopyala</button>' +
+            '<button class="btn-sm" onclick="shareRoute()">Paylaş</button>' +
+          '</div>' +
+          buildSegments(opt) +
+          '</div>';
+
+        // Alternatives
+        if (sorted.length > 1) {
+          html += '<div class="alt-header"><span>Alternatif Rotalar</span>' +
+            '<button class="btn-text" id="toggleAlternativesBtn" onclick="toggleAlternatives()">' + getAlternativesLabel() + '</button></div>';
+          html += '<div id="alternativesSection">';
+          sorted.slice(1).forEach(function(route, ri) {
+            const routeId = 'route-' + ri;
+            html += '<div class="route-card alt" onclick="selectRoute(' + (ri + 1) + '); toggleRouteDetails(\'' + routeId + '\')">' +
+              '<div class="rc-head"><span class="rc-type">' + getRouteIcon(route.routeType) + ' ' + route.routeType + '</span>' +
+              '<span class="rc-summary">' + route.totalDuration + ' dk · ' + route.totalFare.toFixed(2) + ' ₺ · ' + route.totalDistance.toFixed(1) + ' km</span>' +
+              '<span class="expand-icon" id="icon-' + routeId + '">▾</span></div>' +
+              '<div class="rc-chips">' + buildChips(route) + '</div>' +
+              buildTimeline(route) +
+              '<div class="route-detail-expand" id="' + routeId + '" style="display:none">' +
+                buildSegments(route) +
+              '</div>' +
+              '</div>';
+          });
+          html += '</div>';
+        }
+
+        document.getElementById('result').innerHTML = html;
       })
-      .catch(error => {
-        document.getElementById("result").innerHTML = "<p style='color: red;'>Hata: " + error + "</p>";
+      .catch(err => {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('result').innerHTML = '<div class="alert error">Hata: ' + err.message + '</div>';
       });
     });
+
+    // ─── Helpers ───
+    function getRouteIcon(t) {
+      if (t.includes('Walk')) return '🚶';
+      if (t.includes('Bus')) return '🚌';
+      if (t.includes('Tram')) return '🚊';
+      if (t.includes('Taxi')) return '🚕';
+      if (t.includes('Mixed')) return '🚌🚊';
+      return '🚗';
+    }
+
+    function filterRoutes(data) {
+      const allowTaxi = document.getElementById('allowTaxi').checked;
+      const allowWalk = document.getElementById('allowWalkOnly').checked;
+      return [data.optimalRoute].concat(data.alternativeRoutes || []).filter(r =>
+        r && r.routeType && (allowTaxi || !r.routeType.includes('Taxi')) && (allowWalk || r.routeType !== 'Walk Only')
+      );
+    }
+
+    function sortRoutes(routes) {
+      const s = document.getElementById('sortBy').value, c = routes.slice();
+      if (s === 'cheapest') return c.sort((a, b) => a.totalFare - b.totalFare);
+      if (s === 'balanced') return c.sort((a, b) => (a.totalDuration + a.totalFare * 2) - (b.totalDuration + b.totalFare * 2));
+      return c.sort((a, b) => a.totalDuration - b.totalDuration);
+    }
+
+    function formatArrivalTime(d) {
+      const a = new Date(Date.now() + d * 60000);
+      return a.getHours().toString().padStart(2, '0') + ':' + a.getMinutes().toString().padStart(2, '0');
+    }
+
+    function formatStopId(id) {
+      if (!id) return '—';
+      if (id === 'custom_start') return 'Başlangıç';
+      if (id === 'custom_end') return 'Hedef';
+      return id.replace(/^(bus_|tram_|taxi_)/i, '').replace(/_/g, ' ')
+        .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    function getVehicleIcon(v) {
+      return { Walk: '🚶', Bus: '🚌', Tram: '🚊', Taxi: '🚕' }[v] || '🚗';
+    }
+
+    function buildChips(route) {
+      const segs = route.segments || [];
+      const types = new Set(segs.map(s => s.vehicleType));
+      const chips = [];
+      if (types.has('Walk')) chips.push('<span class="chip walk">Yürüme</span>');
+      if (types.has('Bus')) chips.push('<span class="chip bus">Otobüs</span>');
+      if (types.has('Tram')) chips.push('<span class="chip tram">Tramvay</span>');
+      if (types.has('Taxi')) chips.push('<span class="chip taxi">Taksi</span>');
+      const transfers = segs.filter(s => s.isTransfer).length;
+      if (transfers) chips.push('<span class="chip neutral">' + transfers + ' aktarma</span>');
+      return chips.join('');
+    }
+
+    function buildTimeline(route) {
+      const segs = route.segments || [];
+      if (!segs.length) return '';
+      return '<div class="timeline">' + segs.map(s =>
+        '<div class="tl-item ' + s.vehicleType.toLowerCase() + '">' +
+        '<span class="tl-icon">' + getVehicleIcon(s.vehicleType) + '</span>' +
+        '<span class="tl-text">' + formatStopId(s.fromStopId) + ' → ' + formatStopId(s.toStopId) + '</span>' +
+        '<span class="tl-time">' + s.duration + ' dk</span>' +
+        '</div>'
+      ).join('') + '</div>';
+    }
+
+    function buildSegments(route) {
+      const segs = route.segments || [];
+      if (!segs.length) return '';
+      return '<div class="segments">' + segs.map((s, i) =>
+        '<div class="seg">' +
+        '<div class="seg-num">' + (i + 1) + '</div>' +
+        '<div class="seg-body">' +
+          '<div class="seg-head">' + getVehicleIcon(s.vehicleType) + ' <strong>' + s.vehicleType + '</strong>' +
+          (s.isTransfer ? ' <span class="seg-transfer">Aktarma</span>' : '') + '</div>' +
+          '<div class="seg-route">' + formatStopId(s.fromStopId) + ' → ' + formatStopId(s.toStopId) + '</div>' +
+          '<div class="seg-meta">' + s.distance.toFixed(2) + ' km · ' + s.duration + ' dk · ' + s.fare.toFixed(2) + ' ₺</div>' +
+        '</div></div>'
+      ).join('') + '</div>';
+    }
+
+    // ─── Panel interactions ───
+    function renderRoutePanels(route) {
+      const sp = document.getElementById('stopsPanel'), lp = document.getElementById('linesPanel');
+      const np = document.getElementById('nearbyStopsPanel');
+      if (!sp || !lp || !route || !route.segments) return;
+      const stops = [], lines = new Set();
+      route.segments.forEach(s => {
+        if (s.fromStopId) stops.push(s.fromStopId);
+        if (s.toStopId) stops.push(s.toStopId);
+        if (s.vehicleType && s.vehicleType !== 'Walk') lines.add(s.vehicleType);
+      });
+      const unique = stops.filter((id, i, a) => id && !id.startsWith('custom_') && a.indexOf(id) === i);
+      sp.innerHTML = unique.length
+        ? unique.map((id, i) => '<div class="sl-item" onclick="focusStop(\'' + id + '\')" onmouseenter="highlightStop(\'' + id + '\')" onmouseleave="unhighlightStop(\'' + id + '\')"><span class="sl-idx">' + (i + 1) + '</span><span>' + formatStopId(id) + '</span>' + getStopTypeBadge(id) + '</div>').join('')
+        : '<p class="muted">Durak yok</p>';
+      lp.innerHTML = lines.size
+        ? Array.from(lines).map(l => '<div class="sl-item"><span class="sl-dot ' + l.toLowerCase() + '"></span>' + l + '</div>').join('')
+        : '<p class="muted">Yürüme rotası</p>';
+      if (np && window.lastRouteData && window.lastStartCoord) renderNearbyStops(window.lastRouteData, window.lastStartCoord);
+    }
+
+    function wireStopSearch() {
+      const input = document.getElementById('stopSearch');
+      if (!input) return;
+      input.addEventListener('input', function() {
+        if (!window.lastRouteData) return;
+        renderStopsSearch(window.lastRouteData, input.value);
+      });
+    }
+
+    function renderStopsSearch(data, query) {
+      const sp = document.getElementById('stopsPanel');
+      if (!sp || !data.stopLocations) return;
+      const q = (query || '').trim().toLowerCase();
+      const all = Object.keys(data.stopLocations).filter(id => id && !id.startsWith('custom_'));
+      const filtered = q ? all.filter(id => formatStopId(id).toLowerCase().includes(q)) : all.slice(0, 8);
+      sp.innerHTML = filtered.length
+        ? filtered.map((id, i) => '<div class="sl-item" onclick="focusStop(\'' + id + '\')" onmouseenter="highlightStop(\'' + id + '\')" onmouseleave="unhighlightStop(\'' + id + '\')"><span class="sl-idx">' + (i + 1) + '</span><span>' + formatStopId(id) + '</span>' + getStopTypeBadge(id) + '</div>').join('')
+        : '<p class="muted">Eşleşen durak yok</p>';
+    }
+
+    function renderNearbyStops(data, startCoord) {
+      const np = document.getElementById('nearbyStopsPanel');
+      if (!np || !data.stopLocations) return;
+      const origin = new google.maps.LatLng(startCoord.lat, startCoord.lng);
+      const stops = Object.keys(data.stopLocations).filter(id => id && !id.startsWith('custom_')).map(id => {
+        const c = data.stopLocations[id];
+        return { id, distance: google.maps.geometry.spherical.computeDistanceBetween(origin, new google.maps.LatLng(c.latitude, c.longitude)) / 1000 };
+      }).sort((a, b) => a.distance - b.distance).slice(0, 6);
+      np.innerHTML = stops.length
+        ? stops.map(s => '<div class="sl-item" onclick="focusStop(\'' + s.id + '\')"><span>' + formatStopId(s.id) + '</span>' + getStopTypeBadge(s.id) + '<span class="sl-dist">' + s.distance.toFixed(2) + ' km</span></div>').join('')
+        : '<p class="muted">Yakında durak yok</p>';
+    }
+
+    function highlightStop(id) { const m = stopMarkersById[id]; if (m) m.setAnimation(google.maps.Animation.BOUNCE); }
+    function unhighlightStop(id) { const m = stopMarkersById[id]; if (m) m.setAnimation(null); }
+    function focusStop(id) { const m = stopMarkersById[id]; if (!m) return; activeStopId = id; map.panTo(m.getPosition()); map.setZoom(Math.max(14, map.getZoom())); highlightStop(id); renderActiveStopCard(id); }
+    function setStartFromStop(id) { if (!window.lastRouteData?.stopLocations) return; const c = window.lastRouteData.stopLocations[id]; if (c) updateStartMarker(c.latitude, c.longitude); }
+    function setEndFromStop(id) { if (!window.lastRouteData?.stopLocations) return; const c = window.lastRouteData.stopLocations[id]; if (c) updateEndMarker(c.latitude, c.longitude); }
+
+    function renderActiveStopCard(id) {
+      const card = document.getElementById('activeStopCard');
+      if (!card || !id) return;
+      card.innerHTML = '<div class="asc-name">' + formatStopId(id) + '</div><div class="asc-meta">Tip: ' + getStopType(id) + ' · Hatlar: ' + getLinesForStop(id) + '</div>';
+    }
+    function getStopType(id) { return id?.startsWith('bus_') ? 'Otobüs' : id?.startsWith('tram_') ? 'Tramvay' : 'Durak'; }
+    function getLinesForStop(id) {
+      if (!window.lastRoutes) return '—';
+      const lines = new Set();
+      window.lastRoutes.forEach(r => (r.segments || []).forEach(s => { if ((s.fromStopId === id || s.toStopId === id) && s.vehicleType !== 'Walk') lines.add(s.vehicleType); }));
+      return lines.size ? Array.from(lines).join(', ') : 'Yürüme';
+    }
+    function getStopTypeBadge(id) { const t = getStopType(id); return '<span class="chip sm ' + (t === 'Otobüs' ? 'bus' : t === 'Tramvay' ? 'tram' : 'neutral') + '">' + t + '</span>'; }
+
+    function focusRouteOnMap(idx) {
+      if (!window.lastRoutes || !window.lastRouteData) return;
+      const r = window.lastRoutes[idx]; if (!r?.segments) return;
+      const bounds = new google.maps.LatLngBounds();
+      r.segments.forEach(s => {
+        const from = resolveCoord(s.fromStopId, window.lastRouteData, window.lastStartCoord, window.lastEndCoord);
+        const to = resolveCoord(s.toStopId, window.lastRouteData, window.lastStartCoord, window.lastEndCoord);
+        if (from) bounds.extend(from); if (to) bounds.extend(to);
+      });
+      map.fitBounds(bounds);
+    }
+
+    function toggleAlternatives() {
+      alternativesVisible = !alternativesVisible;
+      const sec = document.getElementById('alternativesSection'), btn = document.getElementById('toggleAlternativesBtn');
+      if (sec) sec.style.display = alternativesVisible ? 'block' : 'none';
+      if (btn) btn.textContent = getAlternativesLabel();
+    }
+    function getAlternativesLabel() { return alternativesVisible ? 'Gizle' : 'Göster'; }
+
+    function toggleRouteDetails(id) {
+      const el = document.getElementById(id), icon = document.getElementById('icon-' + id);
+      if (!el) return;
+      const show = el.style.display === 'none';
+      el.style.display = show ? 'block' : 'none';
+      if (icon) icon.textContent = show ? '▴' : '▾';
+    }
+
+    function selectRoute(idx) {
+      if (!window.lastRoutes || !window.lastRouteData) return;
+      drawRoutesWithHighlight(window.lastRoutes, idx, window.lastRouteData, window.lastStartCoord, window.lastEndCoord);
+      renderRoutePanels(window.lastRoutes[idx]);
+    }
+
+    function buildShareUrl() {
+      const p = new URLSearchParams();
+      ['startLat','startLon','destLat','destLon'].forEach(id => p.set(id, document.getElementById(id.replace('Lon', 'Lon').replace('startLon', 'startLon')).value));
+      p.set('startLat', document.getElementById('startLat').value);
+      p.set('startLon', document.getElementById('startLon').value);
+      p.set('destLat', document.getElementById('destLat').value);
+      p.set('destLon', document.getElementById('destLon').value);
+      p.set('passengerType', document.getElementById('passengerType').value);
+      p.set('sortBy', document.getElementById('sortBy').value);
+      p.set('allowTaxi', document.getElementById('allowTaxi').checked);
+      p.set('allowWalkOnly', document.getElementById('allowWalkOnly').checked);
+      return location.origin + location.pathname + '?' + p.toString();
+    }
+    function copyRouteLink() { if (navigator.clipboard) navigator.clipboard.writeText(buildShareUrl()); }
+    function shareRoute() { if (navigator.share) navigator.share({ title: 'İzmit Transit Rota', url: buildShareUrl() }); else copyRouteLink(); }
   </script>
 </body>
 </html>

@@ -8,10 +8,11 @@ namespace IzmitTransportationSystem.Services
     {
         private readonly TransportationDataService _dataService;
         private readonly double _maxWalkingDistance = 3.0;
+        private readonly double _walkingSpeedKmh = 5.0;
 
-        public RoutePlannerService()
+        public RoutePlannerService(TransportationDataService dataService)
         {
-            _dataService = TransportationDataService.Instance;
+            _dataService = dataService;
         }
 
         private Passenger CreatePassenger(string passengerType)
@@ -35,6 +36,28 @@ namespace IzmitTransportationSystem.Services
 
             var nearestStartStop = _dataService.FindNearestStop(startLocation);
             var nearestEndStop = _dataService.FindNearestStop(destinationLocation);
+            
+            if (nearestStartStop == null || nearestEndStop == null)
+            {
+                // Durak bulunamadı, sadece taksi rotası döndür
+                var taxiOnlyRoute = CalculateTaxiRoute(startLocation, destinationLocation, passenger);
+                taxiOnlyRoute.RouteType = "Taxi Only";
+                
+                return new JourneyPlanResponse
+                {
+                    NearestStartStop = "Durak bulunamadı",
+                    DistanceToStartStop = 0,
+                    NearestEndStop = "Durak bulunamadı",
+                    DistanceFromEndStop = 0,
+                    OptimalRoute = taxiOnlyRoute,
+                    AlternativeRoutes = new List<JourneyRoute>(),
+                    StartLocation = startLocation,
+                    EndLocation = destinationLocation,
+                    StartStopLocation = startLocation,
+                    EndStopLocation = destinationLocation,
+                    StopLocations = new Dictionary<string, Coordinates>()
+                };
+            }
 
             var distanceToStartStop = nearestStartStop.DistanceTo(startLocation);
             var distanceFromEndStop = nearestEndStop.DistanceTo(destinationLocation);
@@ -44,7 +67,31 @@ namespace IzmitTransportationSystem.Services
             var mixedRoute = FindMixedRoute(nearestStartStop, nearestEndStop, passenger);
             var taxiRoute = CalculateTaxiRoute(startLocation, destinationLocation, passenger);
 
+            if (busOnlyRoute != null)
+            {
+                busOnlyRoute = AddAccessEgressWalkSegments(busOnlyRoute, startLocation, destinationLocation);
+            }
+
+            if (tramOnlyRoute != null)
+            {
+                tramOnlyRoute = AddAccessEgressWalkSegments(tramOnlyRoute, startLocation, destinationLocation);
+            }
+
+            if (mixedRoute != null)
+            {
+                mixedRoute = AddAccessEgressWalkSegments(mixedRoute, startLocation, destinationLocation);
+            }
+
             var combinedRoutes = new List<JourneyRoute>();
+
+            var directWalkDistance = startLocation.CalculateDistance(destinationLocation);
+            if (directWalkDistance <= _maxWalkingDistance)
+            {
+                var walkRoute = new JourneyRoute();
+                walkRoute.AddSegment(CreateWalkingSegment(startLocation, destinationLocation, "custom_start", "custom_end"));
+                walkRoute.RouteType = "Walk Only";
+                combinedRoutes.Add(walkRoute);
+            }
 
             if (distanceToStartStop > _maxWalkingDistance || distanceFromEndStop > _maxWalkingDistance)
             {
@@ -94,16 +141,118 @@ namespace IzmitTransportationSystem.Services
             combinedRoutes.Add(taxiRoute);
 
             var sortedRoutes = combinedRoutes.OrderBy(r => r.TotalDuration).ToList();
+            
+            // Eğer hiç rota yoksa, boş bir taksi rotası oluştur
+            if (!sortedRoutes.Any())
+            {
+                var emergencyTaxiRoute = CalculateTaxiRoute(startLocation, destinationLocation, passenger);
+                emergencyTaxiRoute.RouteType = "Taxi Only";
+                sortedRoutes.Add(emergencyTaxiRoute);
+            }
 
             return new JourneyPlanResponse
             {
-                NearestStartStop = nearestStartStop.Name,
+                NearestStartStop = nearestStartStop.Name ?? "Bilinmiyor",
                 DistanceToStartStop = distanceToStartStop,
-                NearestEndStop = nearestEndStop.Name,
+                NearestEndStop = nearestEndStop.Name ?? "Bilinmiyor",
                 DistanceFromEndStop = distanceFromEndStop,
-                OptimalRoute = sortedRoutes.FirstOrDefault(),
-                AlternativeRoutes = sortedRoutes.Skip(1).ToList()
+                OptimalRoute = sortedRoutes.First(),
+                AlternativeRoutes = sortedRoutes.Skip(1).ToList(),
+                StartLocation = startLocation,
+                EndLocation = destinationLocation,
+                StartStopLocation = nearestStartStop.Location,
+                EndStopLocation = nearestEndStop.Location,
+                StopLocations = BuildStopLocations(sortedRoutes)
             };
+        }
+
+        private RouteSegment CreateWalkingSegment(Coordinates start, Coordinates end, string fromId, string toId)
+        {
+            var distance = start.CalculateDistance(end);
+            var duration = (int)System.Math.Ceiling((distance / _walkingSpeedKmh) * 60.0);
+
+            return new RouteSegment
+            {
+                FromStopId = fromId,
+                ToStopId = toId,
+                VehicleType = "Walk",
+                IsTransfer = false,
+                Distance = distance,
+                Duration = duration,
+                Fare = 0
+            };
+        }
+
+        private JourneyRoute AddAccessEgressWalkSegments(JourneyRoute route, Coordinates startLocation, Coordinates endLocation)
+        {
+            var newRoute = new JourneyRoute();
+
+            if (route.Segments.Count == 0)
+            {
+                return route;
+            }
+
+            var firstSegment = route.Segments.First();
+            var lastSegment = route.Segments.Last();
+
+            var firstStop = _dataService.GetStopById(firstSegment.FromStopId);
+            var lastStop = _dataService.GetStopById(lastSegment.ToStopId);
+
+            if (firstStop != null)
+            {
+                var distanceToFirstStop = firstStop.DistanceTo(startLocation);
+                if (distanceToFirstStop > 0.05)
+                {
+                    newRoute.AddSegment(CreateWalkingSegment(startLocation, firstStop.Location, "custom_start", firstStop.Id));
+                }
+            }
+
+            foreach (var segment in route.Segments)
+            {
+                newRoute.AddSegment(segment);
+            }
+
+            if (lastStop != null)
+            {
+                var distanceFromLastStop = lastStop.DistanceTo(endLocation);
+                if (distanceFromLastStop > 0.05)
+                {
+                    newRoute.AddSegment(CreateWalkingSegment(lastStop.Location, endLocation, lastStop.Id, "custom_end"));
+                }
+            }
+
+            return newRoute;
+        }
+
+        private Dictionary<string, Coordinates> BuildStopLocations(IEnumerable<JourneyRoute> routes)
+        {
+            var locations = new Dictionary<string, Coordinates>();
+
+            foreach (var route in routes)
+            {
+                foreach (var segment in route.Segments)
+                {
+                    if (!string.IsNullOrWhiteSpace(segment.FromStopId) && !segment.FromStopId.StartsWith("custom_"))
+                    {
+                        var stop = _dataService.GetStopById(segment.FromStopId);
+                        if (stop != null && !locations.ContainsKey(stop.Id))
+                        {
+                            locations[stop.Id] = stop.Location;
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(segment.ToStopId) && !segment.ToStopId.StartsWith("custom_"))
+                    {
+                        var stop = _dataService.GetStopById(segment.ToStopId);
+                        if (stop != null && !locations.ContainsKey(stop.Id))
+                        {
+                            locations[stop.Id] = stop.Location;
+                        }
+                    }
+                }
+            }
+
+            return locations;
         }
 
         private RouteSegment CreateTaxiSegment(Coordinates start, Coordinates end, Passenger passenger)
@@ -147,12 +296,15 @@ namespace IzmitTransportationSystem.Services
                 var firstStop = _dataService.GetStopById(firstSegment.FromStopId);
                 var lastStop = _dataService.GetStopById(lastSegment.ToStopId);
 
-                var distanceToFirstStop = firstStop.DistanceTo(startLocation);
-                if (distanceToFirstStop > _maxWalkingDistance)
+                if (firstStop != null)
                 {
-                    var taxiSegment = CreateTaxiSegment(startLocation, firstStop.Location, passenger);
-                    taxiSegment.ToStopId = firstStop.Id;
-                    newRoute.AddSegment(taxiSegment);
+                    var distanceToFirstStop = firstStop.DistanceTo(startLocation);
+                    if (distanceToFirstStop > _maxWalkingDistance)
+                    {
+                        var taxiSegment = CreateTaxiSegment(startLocation, firstStop.Location, passenger);
+                        taxiSegment.ToStopId = firstStop.Id;
+                        newRoute.AddSegment(taxiSegment);
+                    }
                 }
 
                 foreach (var segment in route.Segments)
@@ -160,12 +312,15 @@ namespace IzmitTransportationSystem.Services
                     newRoute.AddSegment(segment);
                 }
 
-                var distanceFromLastStop = lastStop.DistanceTo(endLocation);
-                if (distanceFromLastStop > _maxWalkingDistance)
+                if (lastStop != null)
                 {
-                    var taxiSegment = CreateTaxiSegment(lastStop.Location, endLocation, passenger);
-                    taxiSegment.FromStopId = lastStop.Id;
-                    newRoute.AddSegment(taxiSegment);
+                    var distanceFromLastStop = lastStop.DistanceTo(endLocation);
+                    if (distanceFromLastStop > _maxWalkingDistance)
+                    {
+                        var taxiSegment = CreateTaxiSegment(lastStop.Location, endLocation, passenger);
+                        taxiSegment.FromStopId = lastStop.Id;
+                        newRoute.AddSegment(taxiSegment);
+                    }
                 }
             }
 

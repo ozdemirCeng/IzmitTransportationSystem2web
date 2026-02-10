@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.IO;
+using IzmitTransportationSystem.Services;
 
 namespace IzmitTransportationSystem
 {
@@ -11,7 +12,25 @@ namespace IzmitTransportationSystem
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            // Diğer servislerin eklenmesi...
+            
+            // CORS yapılandırması
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", builder =>
+                {
+                    builder.AllowAnyOrigin()
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
+                });
+            });
+            
+            // Swagger/OpenAPI yapılandırması
+            services.AddEndpointsApiExplorer();
+            services.AddSwaggerGen();
+            
+            // Servislerin DI'a kaydedilmesi
+            services.AddSingleton<TransportationDataService>();
+            services.AddScoped<RoutePlannerService>();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -19,6 +38,8 @@ namespace IzmitTransportationSystem
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                app.UseSwagger();
+                app.UseSwaggerUI();
             }
 
             // Varsayılan dosyaları (ör. index.html) sunar
@@ -26,6 +47,9 @@ namespace IzmitTransportationSystem
             app.UseStaticFiles();
 
             app.UseRouting();
+            
+            // CORS middleware
+            app.UseCors("AllowAll");
 
             app.UseEndpoints(endpoints =>
             {
