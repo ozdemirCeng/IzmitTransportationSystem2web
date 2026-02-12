@@ -7,12 +7,14 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 ## ✨ Özellikler
 
 ### 🎯 Rota Planlama
+
 - **Akıllı Rota Algoritması**: Otobüs, tramvay, taksi ve yürüme seçeneklerini birleştirerek en uygun rotayı bulur
 - **Çoklu Alternatif Rotalar**: En hızlı, en ucuz ve dengeli rota seçenekleri
 - **Gerçek Zamanlı Hesaplama**: Mesafe, süre ve maliyet bilgileriyle detaylı rota analizi
 - **Aktarma Optimizasyonu**: Minimum aktarma ve yürüme mesafesi ile optimize edilmiş rotalar
 
 ### 🗺️ Harita Entegrasyonu
+
 - **Google Maps Tabanlı**: Tam ekran, interaktif harita görünümü
 - **Görsel Rota Çizimi**: Farklı ulaşım türleri için renkli ve kesikli çizgi desteği
   - 🚶 Yeşil kesikli çizgi: Yürüme
@@ -25,6 +27,7 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 ![Rota Detayları](screenshots/Ekran%20görüntüsü%202026-02-11%20022843.png)
 
 ### 🎨 Modern Kullanıcı Arayüzü
+
 - **Google Maps Tarzı Tasarım**: Sezgisel ve tanıdık kullanıcı deneyimi
 - **Yan Panel Menü**: Daraltılabilir, 3 sekmeli (Rota Planla, Duraklar, Favoriler)
 - **Responsive Tasarım**: Masaüstü ve mobil cihazlarda mükemmel görünüm
@@ -32,17 +35,20 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 - **Animasyonlu Geçişler**: Akıcı ve profesyonel kullanıcı deneyimi
 
 ### 👥 Yolcu Tipleri
+
 - **Genel Yolcu**: Standart ücretlendirme
 - **Öğrenci**: İndirimli tarife
 - **Yaşlı**: Özel tarife ve avantajlar
 
 ### 💳 Ödeme Seçenekleri
+
 - Nakit
 - Kredi Kartı
 - KentKart (Akıllı Kart)
 - Otomatik bakiye kontrolü ve uyarılar
 
 ### ⭐ Favori Rotalar
+
 - Sık kullanılan rotaları kaydetme
 - Hızlı erişim ve paylaşım
 - Link kopyalama ve sosyal medya paylaşımı
@@ -52,6 +58,7 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 ## 🛠️ Teknolojiler
 
 ### Backend
+
 - **ASP.NET Core 8.0**: Modern, yüksek performanslı web framework
 - **C# 12**: Son nesil programlama dili özellikleri
 - **RESTful API**: Temiz ve ölçeklenebilir API mimarisi
@@ -59,6 +66,7 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 - **Dijkstra Algoritması**: Optimum rota bulma için grafik algoritması
 
 ### Frontend
+
 - **Vanilla JavaScript**: Framework bağımlılığı olmayan, performanslı kod
 - **Google Maps JavaScript API**: Harita ve yönlendirme servisleri
 - **Modern CSS3**: Flexbox, Grid, Custom Properties
@@ -66,6 +74,7 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 - **Responsive Design**: Mobil-öncelikli tasarım yaklaşımı
 
 ### Özellikler
+
 - **Veri Yönetimi**: JSON tabanlı şehir verisi (duraklar, hatlar, taksi bilgileri)
 - **Algoritma**: Grafik tabanlı rota bulma ve optimizasyon
 - **Önbellekleme**: Hızlı veri erişimi için akıllı önbellekleme
@@ -74,6 +83,7 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 ## 📋 Kurulum
 
 ### Gereksinimler
+
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - Google Maps API Anahtarı ([buradan alın](https://developers.google.com/maps/documentation/javascript/get-api-key))
 - Modern web tarayıcı (Chrome, Firefox, Safari, Edge)
@@ -81,6 +91,7 @@ Modern, kullanıcı dostu bir web tabanlı ulaşım rotası planlama uygulaması
 ### Adımlar
 
 1. **Projeyi klonlayın**
+
 ```bash
 git clone https://github.com/ozdemirCeng/IzmitTransportationSystem2web.git
 cd IzmitTransportationSystem2web
@@ -89,6 +100,7 @@ cd IzmitTransportationSystem2web
 2. **Google Maps API Anahtarını ayarlayın**
 
 `appsettings.json` dosyasını açın ve API anahtarınızı ekleyin:
+
 ```json
 {
   "GoogleMaps": {
@@ -98,11 +110,13 @@ cd IzmitTransportationSystem2web
 ```
 
 `wwwroot/index.html` dosyasında da güncelleyin:
+
 ```html
 <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=geometry"></script>
 ```
 
 3. **Uygulamayı çalıştırın**
+
 ```bash
 dotnet restore
 dotnet build
@@ -110,6 +124,7 @@ dotnet run
 ```
 
 4. **Tarayıcıda açın**
+
 ```
 http://localhost:5057
 ```
@@ -117,6 +132,7 @@ http://localhost:5057
 ## 🚀 Kullanım
 
 ### Rota Planlama
+
 1. **Başlangıç ve Hedef Seçimi**:
    - Haritaya tıklayarak nokta seçin (önce başlangıç, sonra hedef)
    - veya koordinatları manuel olarak girin
@@ -136,11 +152,13 @@ http://localhost:5057
    - Haritada rota çizilir ve duraklar gösterilir
 
 ### Favoriler
+
 1. Rota planladıktan sonra favori adı girin
 2. "Kaydet" butonuna tıklayın
 3. "Favoriler" sekmesinden istediğiniz zaman erişin
 
 ### Paylaşım
+
 - "Link kopyala" ile rotayı URL olarak paylaşın
 - "Paylaş" butonu ile doğrudan mobil paylaşım menüsünü açın
 
@@ -186,12 +204,13 @@ IzmitTransportationSystem2web/
 ### POST /api/transportation/planjourney
 
 **Request Body:**
+
 ```json
 {
   "startLatitude": 40.7654,
   "startLongitude": 29.9403,
   "destinationLatitude": 40.7441,
-  "destinationLongitude": 29.9100,
+  "destinationLongitude": 29.91,
   "passengerType": "General",
   "payment": {
     "cashAmount": 100,
@@ -202,6 +221,7 @@ IzmitTransportationSystem2web/
 ```
 
 **Response:**
+
 ```json
 {
   "nearestStartStop": "41 Burda AVM (Bus)",
@@ -272,14 +292,16 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 ## 👨‍💻 Geliştirici
 
 **Ömer Faruk Özdemir**
-- 📧 Email: ozdmromer24@gmail.com
+
+- 📧 Email: dev.omer.ozdemir@gmail.com
 - 📱 Telefon: 0533 448 64 24
 - 🌐 GitHub: [@ozdemirCeng](https://github.com/ozdemirCeng)
 
 ## 📞 İletişim
 
 Sorularınız, önerileriniz veya hata bildirimleriniz için:
-- Email: ozdmromer24@gmail.com
+
+- Email: dev.omer.ozdemir@gmail.com
 - Telefon: 0533 448 64 24
 
 ---
